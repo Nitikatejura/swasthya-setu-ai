@@ -1,0 +1,25 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+backend/swasthya_setu.db
+
+# Node & Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+build/
+dist/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.local
