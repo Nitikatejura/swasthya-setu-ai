@@ -8,6 +8,7 @@ export function useOfflineSync() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [connectionQuality, setConnectionQuality] = useState<'fast' | 'slow' | 'offline'>('fast');
 
   const updatePendingCount = async () => {
     try {
@@ -16,21 +17,55 @@ export function useOfflineSync() {
     } catch (e) {}
   };
 
+  const detectConnectionQuality = () => {
+    if (typeof navigator === 'undefined') return;
+    if (!navigator.onLine) {
+      setIsOnline(false);
+      setConnectionQuality('offline');
+      return;
+    }
+
+    setIsOnline(true);
+    const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    if (conn) {
+      const effectiveType = conn.effectiveType;
+      if (effectiveType === 'slow-2g' || effectiveType === '2g' || effectiveType === '3g') {
+        setConnectionQuality('slow');
+      } else {
+        setConnectionQuality('fast');
+      }
+    } else {
+      setConnectionQuality('fast');
+    }
+  };
+
   useEffect(() => {
+    detectConnectionQuality();
     updatePendingCount();
 
     const handleOnline = () => {
-      setIsOnline(true);
+      detectConnectionQuality();
       triggerSync();
     };
-    const handleOffline = () => setIsOnline(false);
+    const handleOffline = () => {
+      setIsOnline(false);
+      setConnectionQuality('offline');
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    if (conn && conn.addEventListener) {
+      conn.addEventListener('change', detectConnectionQuality);
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (conn && conn.removeEventListener) {
+        conn.removeEventListener('change', detectConnectionQuality);
+      }
     };
   }, []);
 
@@ -41,6 +76,13 @@ export function useOfflineSync() {
     try {
       const items = await offlineDb.syncQueue.where('status').equals('PENDING').toArray();
       if (items.length > 0) {
+        // Sort items so RED emergency triage records process FIRST
+        items.sort((a, b) => {
+          const isARed = a.payload?.priority === 'RED' ? 1 : 0;
+          const isBRed = b.payload?.priority === 'RED' ? 1 : 0;
+          return isBRed - isARed;
+        });
+
         const payloadItems = items.map((item) => ({
           queue_id: item.queue_id,
           entity_type: item.entity_type,
@@ -58,13 +100,13 @@ export function useOfflineSync() {
         }
       }
 
-      // Sync down latest records from server
+      // Sync down latest master data from server
       const downRes = await apiClient.get('/sync/download');
       if (downRes.data) {
         setLastSyncTime(new Date().toLocaleTimeString());
       }
     } catch (e) {
-      console.error('Background sync failed:', e);
+      console.error('Priority background sync error:', e);
     } finally {
       setIsSyncing(false);
       updatePendingCount();
@@ -95,5 +137,5 @@ export function useOfflineSync() {
     }
   };
 
-  return { isOnline, isSyncing, pendingCount, lastSyncTime, triggerSync, queueOfflineAction };
+  return { isOnline, isSyncing, pendingCount, lastSyncTime, connectionQuality, triggerSync, queueOfflineAction };
 }

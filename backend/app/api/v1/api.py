@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, users, hospitals_villages, patients, encounters,
-    symptoms_vitals, ai, triage, doctor, referrals, sync, reports, export
+    symptoms_vitals, ai, triage, doctor, referrals, sync, reports, export, ws
 )
 
 api_router = APIRouter()
@@ -19,3 +19,4 @@ api_router.include_router(referrals.router, prefix="/referrals", tags=["referral
 api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(export.router, prefix="/export", tags=["export"])
+api_router.include_router(ws.router, tags=["websockets"])

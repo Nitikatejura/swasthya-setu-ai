@@ -1,33 +1,50 @@
 'use client';
 import './globals.css';
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Navbar } from '@/components/Navbar';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { LanguageProvider, useTranslation } from '@/lib/i18n';
 
 const queryClient = new QueryClient();
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [lang, setLang] = useState('gu');
+function MainLayoutContent({ children }: { children: React.ReactNode }) {
+  const { lang, setLang, t } = useTranslation();
 
   return (
-    <html lang={lang} className="dark">
+    <>
+      <Navbar lang={lang} setLang={setLang} />
+      <OfflineBanner />
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        {children}
+      </main>
+      <footer className="bg-white border-t border-slate-200 text-center py-4 text-xs text-slate-600 shadow-sm">
+        SwasthyaSetu AI &copy; 2026 &bull; {t('disclaimer')}
+      </footer>
+    </>
+  );
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
+  return (
+    <html lang="gu" className="light" suppressHydrationWarning>
       <head>
         <title>SwasthyaSetu AI - Rural Healthcare CDSS</title>
         <meta name="description" content="Offline-first AI-assisted Clinical Decision Support System for Rural Healthcare" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#090d16" />
+        <meta name="theme-color" content="#ffffff" />
       </head>
-      <body className="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
+      <body className="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans" suppressHydrationWarning>
         <QueryClientProvider client={queryClient}>
-          <Navbar lang={lang} setLang={setLang} />
-          <OfflineBanner />
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-            {children}
-          </main>
-          <footer className="bg-slate-900 border-t border-slate-800 text-center py-4 text-xs text-slate-500">
-            SwasthyaSetu AI &copy; 2026 &bull; Offline-First Clinical Decision Support System &bull; CDSS Disclaimer Applied
-          </footer>
+          <LanguageProvider>
+            <MainLayoutContent>{children}</MainLayoutContent>
+          </LanguageProvider>
         </QueryClientProvider>
       </body>
     </html>

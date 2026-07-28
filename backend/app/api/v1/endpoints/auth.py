@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_active_user
 from app.core.security import verify_password, create_access_token, create_refresh_token, get_password_hash, decode_token
 from app.models.models import User, AuditLog
-from app.schemas.schemas import Token, LoginRequest, PasswordChangeRequest, UserResponse
+from app.schemas.schemas import Token, LoginRequest, PasswordChangeRequest, UserResponse, UserCreate
 
 router = APIRouter()
 
@@ -24,6 +24,19 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive account")
 
+    if user.account_status == "PENDING":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="PENDING: Your registration request has been submitted and is awaiting administrator approval."
+        )
+
+    if user.account_status == "REJECTED":
+        reason_msg = user.rejected_reason or "Registration request rejected. Please contact administrator."
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"REJECTED: {reason_msg}"
+        )
+
     access_token = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
 
@@ -37,6 +50,47 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": user
+    }
+
+@router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+def register(user_in: UserCreate, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(
+        (User.username == user_in.username) | (User.email == user_in.email)
+    ).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username or email already registered")
+
+    new_user = User(
+        full_name=user_in.full_name,
+        username=user_in.username,
+        email=user_in.email,
+        phone_number=user_in.phone_number,
+        password_hash=get_password_hash(user_in.password),
+        role=user_in.role,
+        hospital_id=user_in.hospital_id,
+        hospital_name=user_in.hospital_name,
+        registration_number=user_in.registration_number,
+        employee_id=user_in.employee_id,
+        account_status="PENDING",
+        is_active=True,
+        requires_password_change=False
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    audit = AuditLog(user_id=new_user.id, action="USER_SELF_REGISTER", entity="User", entity_id=new_user.id)
+    db.add(audit)
+    db.commit()
+
+    access_token = create_access_token(new_user.id)
+    refresh_token = create_refresh_token(new_user.id)
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": new_user
     }
 
 @router.post("/refresh")

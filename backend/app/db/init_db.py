@@ -1,8 +1,30 @@
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.core.security import get_password_hash
 from app.models.models import User, UserRole, Hospital, Village
 
+def auto_migrate_columns(db: Session):
+    """Ensure missing columns in SQLite users table are automatically added."""
+    columns_to_add = [
+        ("hospital_name", "VARCHAR"),
+        ("registration_number", "VARCHAR"),
+        ("employee_id", "VARCHAR"),
+        ("account_status", "VARCHAR DEFAULT 'APPROVED'"),
+        ("rejected_reason", "TEXT"),
+        ("approved_by", "VARCHAR"),
+        ("approved_at", "DATETIME")
+    ]
+    for col_name, col_type in columns_to_add:
+        try:
+            db.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type};"))
+            db.commit()
+        except Exception:
+            db.rollback()
+
 def init_db(db: Session):
+    # 0. Auto-migrate SQLite schema columns if missing
+    auto_migrate_columns(db)
+
     # 1. Seed Hospital
     h1 = db.query(Hospital).filter(Hospital.code == "HOSP-001").first()
     if not h1:
@@ -36,6 +58,9 @@ def init_db(db: Session):
             password_hash=get_password_hash("admin123"),
             role=UserRole.ADMIN.value,
             hospital_id=h1.id,
+            hospital_name="Anand District General Hospital",
+            account_status="APPROVED",
+            is_active=True,
             requires_password_change=False
         )
         db.add(admin)
@@ -51,6 +76,10 @@ def init_db(db: Session):
             password_hash=get_password_hash("doctor123"),
             role=UserRole.DOCTOR.value,
             hospital_id=h1.id,
+            hospital_name="Anand District General Hospital",
+            registration_number="GMC-2026-8819",
+            account_status="APPROVED",
+            is_active=True,
             requires_password_change=False
         )
         db.add(doctor)
@@ -66,6 +95,10 @@ def init_db(db: Session):
             password_hash=get_password_hash("worker123"),
             role=UserRole.HEALTHCARE_WORKER.value,
             hospital_id=h1.id,
+            hospital_name="Anand District General Hospital",
+            employee_id="ASHA-MOGRI-402",
+            account_status="APPROVED",
+            is_active=True,
             requires_password_change=False
         )
         db.add(worker)

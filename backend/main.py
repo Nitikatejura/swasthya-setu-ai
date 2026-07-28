@@ -26,14 +26,19 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+from fastapi.middleware.gzip import GZipMiddleware
+
 # Set CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all for development and PWA clients
+    allow_origins=settings.get_cors_origins() if settings.ENVIRONMENT == "production" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Enable Gzip Compression for low-bandwidth network payload optimization
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

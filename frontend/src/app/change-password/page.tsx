@@ -43,65 +43,67 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto my-12 p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl space-y-6">
+    <div className="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-3xl shadow-xl space-y-6">
       <div className="text-center space-y-2">
-        <Lock className="w-10 h-10 text-emerald-400 mx-auto" />
-        <h2 className="text-xl font-bold text-white">First Login: Change Password</h2>
-        <p className="text-xs text-slate-400">Please set a secure new password for your account</p>
+        <div className="w-12 h-12 bg-emerald-100 rounded-2xl text-emerald-700 flex items-center justify-center mx-auto shadow-sm">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">First Login: Change Password</h2>
+        <p className="text-xs text-slate-500">Please set a secure new password for your account</p>
       </div>
 
       {error && (
-        <div className="bg-rose-950/80 border border-rose-500/50 p-3 rounded-xl text-rose-300 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
+        <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl text-rose-700 text-xs flex items-center gap-2 font-semibold">
+          <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="bg-emerald-950/80 border border-emerald-500/50 p-3 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
-          <CheckCircle className="w-4 h-4" />
+        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-700 text-xs flex items-center gap-2 font-semibold">
+          <CheckCircle className="w-4 h-4 shrink-0" />
           <span>{success}</span>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-bold text-slate-300 mb-1">Temporary Password</label>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Temporary Password</label>
           <input
             type="password"
             required
             value={oldPassword}
             onChange={(e) => setOldPassword(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:bg-white"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-300 mb-1">New Password</label>
+          <label className="block text-xs font-bold text-slate-700 mb-1">New Password</label>
           <input
             type="password"
             required
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:bg-white"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-300 mb-1">Confirm New Password</label>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Confirm New Password</label>
           <input
             type="password"
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:bg-white"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl text-xs transition"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-xs transition shadow-md shadow-emerald-600/20"
         >
           {loading ? 'Updating Password...' : 'Update Password & Continue'}
         </button>

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { FileText, FileSpreadsheet, Download, BarChart3, TrendingUp, PieChart as PieIcon } from 'lucide-react';
+import { FileText, FileSpreadsheet, Download, BarChart3, PieChart as PieIcon } from 'lucide-react';
 
 export default function ReportsPage() {
   const [data, setData] = useState<any>(null);
@@ -30,37 +30,63 @@ export default function ReportsPage() {
     { name: 'Vadtal', patient_count: 7 },
   ];
 
-  const handleExport = (type: string) => {
-    window.open(`http://localhost:8000/api/v1/export/${type}`, '_blank');
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  const handleExport = async (type: string) => {
+    setExporting(type);
+    try {
+      const res = await apiClient.get(`/export/${type}`, {
+        responseType: 'blob'
+      });
+      
+      const fileExtension = type === 'excel' ? 'xlsx' : type === 'pdf' ? 'pdf' : 'csv';
+      const blob = new Blob([res.data], { type: res.headers['content-type'] });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `swasthya_setu_report_${Date.now()}.${fileExtension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Authenticated export failed:', e);
+      alert('Failed to download report. Please verify login credentials.');
+    } finally {
+      setExporting(null);
+    }
   };
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Reports & Clinical Analytics Dashboard</h1>
-          <p className="text-xs text-slate-400">Systemwide health metrics, triage distribution, village health breakdown, and audit reports</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Reports & Clinical Analytics Dashboard</h1>
+          <p className="text-xs text-slate-500">Systemwide health metrics, triage distribution, village health breakdown, and audit reports</p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleExport('csv')}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg border border-slate-700 text-slate-200 flex items-center gap-1"
+            disabled={exporting !== null}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg border border-slate-300 text-slate-700 flex items-center gap-1 disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5" /> Export CSV
+            <Download className="w-3.5 h-3.5" /> {exporting === 'csv' ? 'Exporting...' : 'Export CSV'}
           </button>
           <button
             onClick={() => handleExport('excel')}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold rounded-lg border border-slate-700 text-emerald-400 flex items-center gap-1"
+            disabled={exporting !== null}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg border border-slate-300 text-emerald-700 flex items-center gap-1 disabled:opacity-50"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5" /> Export Excel
+            <FileSpreadsheet className="w-3.5 h-3.5" /> {exporting === 'excel' ? 'Exporting...' : 'Export Excel'}
           </button>
           <button
             onClick={() => handleExport('pdf')}
-            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold rounded-lg flex items-center gap-1"
+            disabled={exporting !== null}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 disabled:opacity-50 shadow-sm"
           >
-            <FileText className="w-3.5 h-3.5" /> Download PDF Report
+            <FileText className="w-3.5 h-3.5" /> {exporting === 'pdf' ? 'Generating...' : 'Download PDF Report'}
           </button>
         </div>
       </div>
@@ -68,9 +94,9 @@ export default function ReportsPage() {
       {/* Analytics Charts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Triage Priority Pie Chart */}
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <PieIcon className="w-4 h-4 text-emerald-400" /> Triage Outcome Breakdown
+        <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-4 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <PieIcon className="w-4 h-4 text-emerald-600" /> Triage Outcome Breakdown
           </h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -88,7 +114,7 @@ export default function ReportsPage() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '12px', color: '#0f172a' }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -96,17 +122,17 @@ export default function ReportsPage() {
         </div>
 
         {/* Village Patient Distribution Bar Chart */}
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-emerald-400" /> Patient Registrations by Village
+        <div className="bg-white border border-slate-200 p-6 rounded-2xl space-y-4 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-emerald-600" /> Patient Registrations by Village
           </h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={villageData}>
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
-                <YAxis stroke="#94a3b8" fontSize={11} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-                <Bar dataKey="patient_count" fill="#10b981" radius={[6, 6, 0, 0]} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
+                <YAxis stroke="#64748b" fontSize={11} />
+                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '12px', color: '#0f172a' }} />
+                <Bar dataKey="patient_count" fill="#059669" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

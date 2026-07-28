@@ -27,12 +27,13 @@ export function useAuth() {
     setLoading(false);
   }, []);
 
-  const login = async (username_or_email: str, password: str) => {
+  const login = async (username_or_email: string, password: string) => {
     const res = await apiClient.post('/auth/login', { username_or_email, password });
     const { access_token, refresh_token, user } = res.data;
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('refresh_token', refresh_token);
     localStorage.setItem('user', JSON.stringify(user));
+    document.cookie = `access_token=${access_token}; path=/; max-age=86400; SameSite=Lax`;
     setUser(user);
     return user;
   };
@@ -44,6 +45,7 @@ export function useAuth() {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    document.cookie = 'access_token=; path=/; max-age=0';
     setUser(null);
     window.location.href = '/login';
   };

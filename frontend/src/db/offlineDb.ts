@@ -77,7 +77,7 @@ export interface LocalReferral {
   referring_user_id: string;
   destination_hospital_id?: string;
   destination_department?: string;
-  referral_reason: str;
+  referral_reason: string;
   urgency: string;
   referral_notes?: string;
   qr_code_data: string;

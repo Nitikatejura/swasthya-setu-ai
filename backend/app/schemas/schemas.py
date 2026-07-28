@@ -31,6 +31,9 @@ class UserCreate(BaseModel):
     password: str
     role: str  # Admin, Doctor, Healthcare Worker
     hospital_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+    registration_number: Optional[str] = None
+    employee_id: Optional[str] = None
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -38,7 +41,22 @@ class UserUpdate(BaseModel):
     phone_number: Optional[str] = None
     role: Optional[str] = None
     hospital_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+    registration_number: Optional[str] = None
+    employee_id: Optional[str] = None
     is_active: Optional[bool] = None
+    account_status: Optional[str] = None
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    hospital_name: Optional[str] = None
+    registration_number: Optional[str] = None
+    employee_id: Optional[str] = None
+
+class ApprovalDecisionRequest(BaseModel):
+    status: str  # "APPROVED" or "REJECTED"
+    rejected_reason: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -48,6 +66,13 @@ class UserResponse(BaseModel):
     phone_number: Optional[str] = None
     role: str
     hospital_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+    registration_number: Optional[str] = None
+    employee_id: Optional[str] = None
+    account_status: str
+    rejected_reason: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
     is_active: bool
     requires_password_change: bool
     created_at: datetime
