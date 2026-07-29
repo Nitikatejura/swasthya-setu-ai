@@ -127,3 +127,94 @@ def soft_delete_patient(
     db.commit()
 
     return {"message": "Patient soft deleted successfully"}
+
+@router.get("/{id}/timeline")
+def get_patient_timeline(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    from app.models.models import Encounter, DoctorNote, Referral
+    patient = db.query(Patient).filter(Patient.id == id, Patient.is_deleted == False).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    encounters = db.query(Encounter).filter(Encounter.patient_id == id).order_by(Encounter.visit_date.desc()).all()
+    referrals = db.query(Referral).filter(Referral.patient_id == id).order_by(Referral.created_at.desc()).all()
+
+    encounter_timeline = []
+    for enc in encounters:
+        doctor_notes = db.query(DoctorNote).filter(DoctorNote.encounter_id == enc.id).all()
+        encounter_timeline.append({
+            "encounter_id": enc.id,
+            "visit_date": enc.visit_date,
+            "status": enc.encounter_status,
+            "is_reviewed": enc.is_reviewed,
+            "notes": enc.notes,
+            "vitals": [
+                {
+                    "spo2": v.spo2,
+                    "temperature": v.temperature,
+                    "systolic_bp": v.systolic_bp,
+                    "diastolic_bp": v.diastolic_bp,
+                    "pulse_rate": v.pulse_rate,
+                    "respiratory_rate": v.respiratory_rate,
+                    "blood_sugar": v.blood_sugar,
+                    "height": v.height,
+                    "weight": v.weight,
+                    "bmi": v.bmi,
+                    "recorded_at": v.recorded_at
+                } for v in enc.vitals
+            ],
+            "symptoms": [
+                {
+                    "chief_complaint": s.chief_complaint,
+                    "symptom_name": s.symptom_name,
+                    "severity": s.severity,
+                    "duration": s.duration
+                } for s in enc.symptoms
+            ],
+            "triage_record": {
+                "priority": enc.triage_record.priority,
+                "clinical_reason": enc.triage_record.clinical_reason,
+                "recommended_actions": enc.triage_record.recommended_actions,
+                "guideline_used": enc.triage_record.guideline_used,
+                "evaluated_at": enc.triage_record.evaluated_at
+            } if enc.triage_record else None,
+            "doctor_notes": [
+                {
+                    "notes": dn.notes,
+                    "diagnosis_impression": dn.diagnosis_impression,
+                    "treatment_plan": dn.treatment_plan,
+                    "created_at": dn.created_at
+                } for dn in doctor_notes
+            ]
+        })
+
+    return {
+        "patient": {
+            "id": patient.id,
+            "patient_id": patient.patient_id,
+            "full_name": patient.full_name,
+            "age": patient.age,
+            "gender": patient.gender,
+            "blood_group": patient.blood_group,
+            "phone_number": patient.phone_number,
+            "emergency_contact": patient.emergency_contact,
+            "pregnancy_status": patient.pregnancy_status,
+            "allergies": patient.allergies,
+            "medical_history": patient.medical_history,
+            "village": patient.village.name if patient.village else "N/A"
+        },
+        "encounters": encounter_timeline,
+        "referrals": [
+            {
+                "referral_number": r.referral_number,
+                "destination_department": r.destination_department,
+                "referral_reason": r.referral_reason,
+                "urgency": r.urgency,
+                "status": r.status,
+                "created_at": r.created_at
+            } for r in referrals
+        ]
+    }

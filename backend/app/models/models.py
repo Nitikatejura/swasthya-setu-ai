@@ -50,6 +50,11 @@ class Village(Base):
 
     patients = relationship("Patient", back_populates="village")
 
+class AccountStatus(str, Enum):
+    APPROVED = "APPROVED"
+    PENDING = "PENDING"
+    REJECTED = "REJECTED"
+
 class User(Base):
     __tablename__ = "users"
 
@@ -61,6 +66,13 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default=UserRole.HEALTHCARE_WORKER.value)
     hospital_id = Column(String(36), ForeignKey("hospitals.id"), nullable=True)
+    hospital_name = Column(String(255), nullable=True)
+    registration_number = Column(String(100), nullable=True)
+    employee_id = Column(String(100), nullable=True)
+    account_status = Column(String(50), nullable=False, default=AccountStatus.PENDING.value)
+    rejected_reason = Column(Text, nullable=True)
+    approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     requires_password_change = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

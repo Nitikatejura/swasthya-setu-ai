@@ -75,7 +75,7 @@ def evaluate_triage(
     db.commit()
     db.refresh(triage_rec)
 
-    # If priority is RED, trigger emergency doctor notification
+    # If priority is RED, trigger emergency doctor notification and WebSocket broadcast
     if result["priority"] == TriagePriority.RED.value:
         doctors = db.query(User).filter(User.role == UserRole.DOCTOR.value, User.is_active == True).all()
         for doc in doctors:
@@ -88,6 +88,36 @@ def evaluate_triage(
             )
             db.add(notif)
         db.commit()
+
+        # Broadcast real-time RED alert payload to Doctor WebSockets
+        alert_payload = {
+            "type": "RED_ALERT",
+            "alert_id": triage_rec.id,
+            "encounter_id": enc.id,
+            "patient_id": enc.patient.patient_id,
+            "patient_db_id": enc.patient.id,
+            "patient_name": enc.patient.full_name,
+            "age": enc.patient.age,
+            "gender": enc.patient.gender,
+            "village": enc.patient.village.name if enc.patient.village else "N/A",
+            "spo2": vitals_dict.get("spo2"),
+            "systolic_bp": vitals_dict.get("systolic_bp"),
+            "diastolic_bp": vitals_dict.get("diastolic_bp"),
+            "clinical_reason": result["clinical_reason"],
+            "evaluated_at": str(triage_rec.evaluated_at),
+            "worker_name": current_user.full_name
+        }
+
+        try:
+            import asyncio
+            from app.core.ws_manager import ws_manager
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(ws_manager.broadcast_to_all_doctors(alert_payload))
+            except RuntimeError:
+                asyncio.run(ws_manager.broadcast_to_all_doctors(alert_payload))
+        except Exception as e:
+            pass
 
     return triage_rec
 

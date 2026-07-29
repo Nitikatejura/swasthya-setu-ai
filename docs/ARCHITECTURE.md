@@ -4,7 +4,7 @@ SwasthyaSetu AI is an offline-first Clinical Decision Support System (CDSS) desi
 
 ## High-Level System Architecture
 
-```
+```[ERD.md](ERD.md)
                                   ┌───────────────────────────┐
                                   │   Web Speech API STT/TTS  │
                                   └─────────────┬─────────────┘
