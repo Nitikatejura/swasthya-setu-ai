@@ -7,7 +7,7 @@ import { useTranslation } from '@/lib/i18n';
 import { motion } from 'framer-motion';
 import {
   Stethoscope, User, Lock, Mail, Phone, UserCheck, Shield, ArrowRight, ArrowLeft,
-  Building, FileBadge, CheckCircle2, Hospital, Stethoscope as StethoscopeIcon, UserCog
+  FileBadge, CheckCircle2, Hospital, Stethoscope as StethoscopeIcon, UserCog
 } from 'lucide-react';
 
 export default function SignupPage() {
@@ -15,11 +15,11 @@ export default function SignupPage() {
 
   // Form State
   const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(''); // User ID
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [hospitalName, setHospitalName] = useState('Anand District General Hospital');
+  const [hospitalName, setHospitalName] = useState('');
   const [role, setRole] = useState('Healthcare Worker');
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [employeeId, setEmployeeId] = useState('');
@@ -32,19 +32,32 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Validation Rules
+    if (!password || !password.trim()) {
+      setError('Password is required.');
+      return;
+    }
+
+    if (role === 'Doctor' && (!registrationNumber || !registrationNumber.trim() || registrationNumber.trim().toUpperCase() === 'NA')) {
+      setError('Medical Registration Number is required for Doctors.');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      const regNum = role === 'Doctor' ? registrationNumber.trim() : 'NA';
       await apiClient.post('/auth/register', {
         full_name: fullName,
         username: username || email.split('@')[0],
         email: email,
         phone_number: phoneNumber,
         password: password,
-        hospital_name: hospitalName,
+        hospital_name: hospitalName || 'General Health Center',
         role: role,
-        registration_number: role === 'Doctor' ? registrationNumber : null,
-        employee_id: role !== 'Doctor' ? employeeId : null
+        registration_number: regNum,
+        employee_id: role !== 'Doctor' ? (employeeId || 'NA') : null
       });
 
       router.push('/pending-approval');
@@ -121,7 +134,7 @@ export default function SignupPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('username')}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">User ID</label>
                   <div className="relative">
                     <UserCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                     <input
@@ -174,10 +187,11 @@ export default function SignupPage() {
           {step === 2 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">Select Your Role</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
-                  { r: 'Healthcare Worker', title: 'Healthcare Worker / ASHA', icon: StethoscopeIcon, desc: 'Field screening & patient triage' },
-                  { r: 'Doctor', title: 'Medical Officer / Doctor', icon: Shield, desc: 'Review emergency RED cases & notes' },
+                  { r: 'Healthcare Worker', title: 'ASHA / Healthcare Worker', icon: StethoscopeIcon, desc: 'Field screening & patient triage' },
+                  { r: 'Nurse', title: 'Nurse / Nursing Staff', icon: Shield, desc: 'Patient care & vitals recording' },
+                  { r: 'Doctor', title: 'Doctor / Physician', icon: Stethoscope, desc: 'Review emergency RED cases & clinical orders' },
                   { r: 'Admin', title: 'System Administrator', icon: UserCog, desc: 'Manage users & hospital approvals' }
                 ].map((item) => {
                   const Icon = item.icon;
@@ -209,13 +223,13 @@ export default function SignupPage() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">Facility & Hospital Assignment</h3>
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('hospital_facility')}</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Hospital Name</label>
                 <div className="relative">
                   <Hospital className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Anand District Hospital"
+                    placeholder="Enter hospital name"
                     value={hospitalName}
                     onChange={(e) => setHospitalName(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition"
@@ -232,7 +246,9 @@ export default function SignupPage() {
 
               {role === 'Doctor' ? (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('doctor_reg_no')}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Medical Registration Number <span className="text-rose-500">*</span>
+                  </label>
                   <div className="relative">
                     <FileBadge className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                     <input
@@ -247,29 +263,30 @@ export default function SignupPage() {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('worker_emp_id')}</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Registration Number / ID</label>
                   <div className="relative">
                     <FileBadge className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                     <input
                       type="text"
-                      required
-                      placeholder="e.g. ASHA-MOGRI-882"
-                      value={employeeId}
-                      onChange={(e) => setEmployeeId(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition"
+                      disabled
+                      value="NA"
+                      className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono cursor-not-allowed"
                     />
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Medical Registration Number is set to NA for {role} role.</p>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('password')}</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Password <span className="text-rose-500">*</span>
+                </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
                     type="password"
                     required
-                    placeholder={t('password_placeholder')}
+                    placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition"
@@ -295,11 +312,11 @@ export default function SignupPage() {
                   </div>
                   <div>
                     <span className="text-slate-400 block">Hospital Facility:</span>
-                    <strong className="text-slate-900 dark:text-white">{hospitalName}</strong>
+                    <strong className="text-slate-900 dark:text-white">{hospitalName || 'General Health Center'}</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block">Identity Code:</span>
-                    <strong className="text-slate-900 dark:text-white">{role === 'Doctor' ? registrationNumber : employeeId}</strong>
+                    <span className="text-slate-400 block">Registration Code:</span>
+                    <strong className="text-slate-900 dark:text-white">{role === 'Doctor' ? registrationNumber : 'NA'}</strong>
                   </div>
                 </div>
               </div>
@@ -342,9 +359,9 @@ export default function SignupPage() {
 
         <div className="text-center pt-2 border-t border-slate-100 dark:border-slate-800">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {t('already_have_account')}{' '}
+            Already have an account?{' '}
             <Link href="/login" className="font-bold text-teal-600 dark:text-teal-400 hover:underline">
-              {t('sign_in_here')}
+              Sign In Here
             </Link>
           </p>
         </div>

@@ -144,7 +144,8 @@ class Vital(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     encounter_id = Column(String(36), ForeignKey("encounters.id"), nullable=False)
-    temperature = Column(Float, nullable=True)      # in Celsius
+    temperature = Column(Float, nullable=True)      # Temperature value
+    temperature_unit = Column(String(10), default="F") # "F" or "C"
     pulse_rate = Column(Integer, nullable=True)      # bpm
     systolic_bp = Column(Integer, nullable=True)     # mmHg
     diastolic_bp = Column(Integer, nullable=True)    # mmHg
@@ -203,6 +204,7 @@ class DoctorNote(Base):
     notes = Column(Text, nullable=False)
     diagnosis_impression = Column(Text, nullable=True)
     treatment_plan = Column(Text, nullable=True)
+    clinical_orders = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Notification(Base):

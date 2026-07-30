@@ -24,7 +24,7 @@ export const TRANSLATIONS: Record<string, Record<string, string>> = {
     signup: 'Sign Up',
     logout: 'Logout',
     dashboard: 'Dashboard',
-    username: 'Username or Email',
+    username: 'User ID or Email',
     password: 'Password',
     login_btn: 'Sign In',
     signup_btn: 'Register Account',

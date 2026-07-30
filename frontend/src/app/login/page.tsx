@@ -125,7 +125,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('username')}</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">User ID or Email</label>
             <div className="relative">
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
@@ -133,7 +133,7 @@ export default function LoginPage() {
                 required
                 value={usernameOrEmail}
                 onChange={(e) => setUsernameOrEmail(e.target.value)}
-                placeholder={t('username_placeholder')}
+                placeholder="e.g. dr_smith or doctor@swasthyasetu.org"
                 className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-teal-600 focus:bg-white dark:focus:bg-slate-900 transition"
               />
             </div>

@@ -25,9 +25,9 @@ export default function DoctorDashboardPage() {
     try {
       const res = await apiClient.get('/doctor/dashboard');
       setData(res.data);
-      if (res.data.emergency_queue && res.data.emergency_queue.length > 0) {
-        setAlerts(res.data.emergency_queue);
-      }
+
+      const alertsRes = await apiClient.get('/doctor/alerts');
+      setAlerts(alertsRes.data || []);
     } catch (e) {
       console.error('Failed to fetch doctor dashboard:', e);
     } finally {

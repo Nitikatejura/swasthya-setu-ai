@@ -21,20 +21,49 @@ export default function WorkerDashboard() {
   const [gender, setGender] = useState('Female');
   const [phone, setPhone] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
-  const [bloodGroup, setBloodGroup] = useState('O+');
+  const [bloodGroup, setBloodGroup] = useState('Not specified');
 
   const fetchPatients = async () => {
     try {
       if (navigator.onLine) {
         const res = await apiClient.get(`/patients?query=${searchTerm}`);
-        setPatients(res.data);
+        const serverPatients = res.data || [];
+        const localPatients = await offlineDb.patients.toArray();
+
+        const mergedMap = new Map();
+        serverPatients.forEach((p: any) => mergedMap.set(p.patient_id || p.id, p));
+        localPatients.forEach((lp: any) => {
+          const key = lp.patient_id || lp.id;
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, lp);
+          }
+        });
+        setPatients(Array.from(mergedMap.values()));
       } else {
+        const term = searchTerm.toLowerCase().trim();
         const local = await offlineDb.patients.toArray();
-        setPatients(local);
+        const filtered = term
+          ? local.filter(p =>
+              p.patient_id?.toLowerCase().includes(term) ||
+              p.full_name?.toLowerCase().includes(term) ||
+              p.phone_number?.includes(term) ||
+              p.village_id?.toLowerCase().includes(term)
+            )
+          : local;
+        setPatients(filtered);
       }
     } catch (e) {
+      const term = searchTerm.toLowerCase().trim();
       const local = await offlineDb.patients.toArray();
-      setPatients(local);
+      const filtered = term
+        ? local.filter(p =>
+            p.patient_id?.toLowerCase().includes(term) ||
+            p.full_name?.toLowerCase().includes(term) ||
+            p.phone_number?.includes(term) ||
+            p.village_id?.toLowerCase().includes(term)
+          )
+        : local;
+      setPatients(filtered);
     }
   };
 
@@ -46,13 +75,14 @@ export default function WorkerDashboard() {
     e.preventDefault();
     const pid = `SS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const bgToStore = (!bloodGroup || bloodGroup === 'Not specified') ? 'Unknown' : bloodGroup;
     const patientData = {
       full_name: fullName,
       age: parseInt(age),
       gender,
       phone_number: phone,
       emergency_contact: emergencyContact,
-      blood_group: bloodGroup,
+      blood_group: bgToStore,
       pregnancy_status: 'Not Applicable',
       created_by: user?.id || 'offline_worker'
     };

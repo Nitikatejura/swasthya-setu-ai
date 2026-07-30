@@ -13,15 +13,18 @@ class Settings(BaseSettings):
     
     # Environment
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-    SECRET_KEY: str = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+    SECRET_KEY: str = os.getenv("SECRET_KEY") or "swasthya-setu-ai-master-jwt-secret-key-2026-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # 15 minutes short-lived
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7    # 7 days refresh
     
     # Database
-    SQLALCHEMY_DATABASE_URI: str = os.getenv(
-        "DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}"
-    )
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        db_url = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
+        if db_url.startswith("sqlite:///") and "./" in db_url:
+            return f"sqlite:///{DEFAULT_DB_PATH}"
+        return db_url
     
     # CORS
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
