@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { apiClient } from '@/lib/api';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { Printer, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function ReferralsPage() {
   const searchParams = useSearchParams();
@@ -70,65 +71,65 @@ export default function ReferralsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
-      <div className="bg-white border border-slate-200 p-6 rounded-2xl flex justify-between items-center no-print shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 rounded-3xl flex justify-between items-center no-print shadow-sm">
         <div>
-          <h1 className="text-xl font-black text-slate-900">Referral & Patient Transfer Management</h1>
-          <p className="text-xs text-slate-500">Transfer high-risk patients with embedded digital QR verification</p>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white">Referral & Patient Transfer Management</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Transfer high-risk patients with embedded digital QR verification</p>
         </div>
 
         <button
           onClick={() => router.back()}
-          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 rounded-xl flex items-center gap-1"
+          className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-2xl flex items-center gap-1"
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
       </div>
 
       {!referralResult ? (
-        <form onSubmit={handleCreateReferral} className="bg-white border border-slate-200 p-6 rounded-2xl space-y-4 no-print shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-rose-600" /> Create Patient Referral
+        <form onSubmit={handleCreateReferral} className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 rounded-3xl space-y-4 no-print shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" /> Create Patient Referral
           </h2>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Destination Referral Hospital</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Destination Referral Hospital</label>
             <input
               type="text"
               required
               value={destinationHospital}
               onChange={(e) => setDestinationHospital(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Destination Department</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Destination Department</label>
             <input
               type="text"
               required
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Clinical Referral Reason</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Clinical Referral Reason</label>
             <textarea
               required
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Urgency Level</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Urgency Level</label>
             <select
               value={urgency}
               onChange={(e) => setUrgency(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
             >
               <option value="High">High (Immediate Emergency Transfer)</option>
               <option value="Medium">Medium (Within 24 Hours)</option>
@@ -139,14 +140,14 @@ export default function ReferralsPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-emerald-600/20"
+            className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white font-bold rounded-2xl text-xs transition shadow-md shadow-teal-600/30"
           >
             {loading ? 'Generating Digital Referral...' : 'Generate Digital Referral & QR Code'}
           </button>
         </form>
       ) : (
         /* Printable A4 Referral Form Layout */
-        <div className="bg-white text-slate-950 p-8 rounded-2xl border border-slate-300 space-y-6 shadow-xl print-only">
+        <div className="bg-white text-slate-950 p-8 rounded-3xl border border-slate-300 space-y-6 shadow-xl print-only">
           {/* Form Header */}
           <div className="flex justify-between items-center border-b-2 border-slate-900 pb-4">
             <div>
@@ -217,14 +218,14 @@ export default function ReferralsPage() {
           <div className="pt-4 no-print flex justify-end gap-3">
             <button
               onClick={() => setReferralResult(null)}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl"
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-2xl"
             >
               Create Another Referral
             </button>
 
             <button
               onClick={handlePrint}
-              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-lg shadow-emerald-600/30"
+              className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-2xl flex items-center gap-1.5 shadow-lg shadow-teal-600/30"
             >
               <Printer className="w-4 h-4" /> Print A4 Referral Document
             </button>

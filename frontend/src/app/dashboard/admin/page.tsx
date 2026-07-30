@@ -1,20 +1,22 @@
 'use client';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { apiClient } from '@/lib/api';
-import { Users, UserPlus, FileSpreadsheet, FileText, Download } from 'lucide-react';
-
 import { useTranslation } from '@/lib/i18n';
+import { apiClient } from '@/lib/api';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { Users, FileSpreadsheet, Download, RefreshCw, UserPlus, ShieldCheck, Activity, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 
-export default function AdminDashboard() {
+export default function AdminDashboardPage() {
   const { user } = useAuth();
   const { t } = useTranslation();
+
   const [stats, setStats] = useState<any>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Form states
+  // Modal State for New User Creation
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -22,162 +24,165 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState('swasthya123');
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const statsRes = await apiClient.get('/reports/dashboard/admin');
+      const statsRes = await apiClient.get('/analytics/dashboard/stats');
       setStats(statsRes.data);
 
-      const usersRes = await apiClient.get('/users');
+      const usersRes = await apiClient.get('/users/list');
       setUsersList(usersRes.data);
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to fetch admin data:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  const handleExportCSV = () => {
+    const csvContent = "data:text/csv;charset=utf-8,ID,Full Name,Username,Email,Role,Status\n" +
+      usersList.map(u => `${u.id},"${u.full_name}",${u.username},${u.email},${u.role},${u.is_active ? 'Active' : 'Inactive'}`).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `swasthyasetu_users_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post('/users', {
+      await apiClient.post('/users/register', {
         full_name: fullName,
         username,
         email,
-        password,
-        role
+        role,
+        password
       });
+      alert(`User ${fullName} created successfully! Default Password: ${password}`);
       setShowCreateModal(false);
       setFullName('');
       setUsername('');
       setEmail('');
       fetchData();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to create user');
-    }
-  };
-
-  const handleExport = async (type: string) => {
-    try {
-      const res = await apiClient.get(`/export/${type}`, { responseType: 'blob' });
-      const fileExtension = type === 'excel' ? 'xlsx' : type === 'pdf' ? 'pdf' : 'csv';
-      const blob = new Blob([res.data], { type: res.headers['content-type'] });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `swasthya_setu_report_${Date.now()}.${fileExtension}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      alert('Failed to download report.');
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Failed to create user');
     }
   };
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      {/* Admin Banner */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 rounded-3xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">System Administrative Dashboard</h1>
-          <p className="text-xs text-slate-500">Manage user accounts, system configuration, hospital stats, and reports</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{t('admin_dashboard_title')}</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t('admin_dashboard_sub')}</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => handleExport('csv')}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg border border-slate-300 flex items-center gap-1 text-slate-700"
+            onClick={handleExportCSV}
+            className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-2xl flex items-center gap-1.5 transition"
           >
-            <Download className="w-3.5 h-3.5" /> CSV
+            <Download className="w-3.5 h-3.5" /> {t('csv_export')}
           </button>
           <button
-            onClick={() => handleExport('excel')}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-xs font-bold rounded-lg border border-slate-300 flex items-center gap-1 text-emerald-700"
+            onClick={handleExportCSV}
+            className="px-3.5 py-2 bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 text-xs font-bold text-teal-800 dark:text-teal-300 rounded-2xl border border-teal-200 dark:border-teal-800 flex items-center gap-1.5 transition"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+            <FileSpreadsheet className="w-3.5 h-3.5" /> {t('excel_export')}
           </button>
           <button
-            onClick={() => handleExport('pdf')}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-xs font-bold rounded-lg text-white flex items-center gap-1 shadow-sm"
+            onClick={() => window.print()}
+            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-2xl flex items-center gap-1.5 shadow-md shadow-teal-600/20 transition"
           >
-            <FileText className="w-3.5 h-3.5" /> PDF Report
+            <FileText className="w-3.5 h-3.5" /> {t('pdf_report')}
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span className="text-xs text-slate-500 font-bold block">{t('total_patients')}</span>
-          <strong className="text-2xl font-black text-slate-900">{stats?.metrics?.total_patients || 0}</strong>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span className="text-xs text-slate-500 font-bold block">{t('today_assessments')}</span>
-          <strong className="text-2xl font-black text-emerald-600">{stats?.metrics?.total_encounters || 0}</strong>
-        </div>
-        <div className="bg-rose-50 p-5 rounded-2xl border border-rose-200 shadow-sm">
-          <span className="text-xs text-rose-700 font-bold block">{t('emergency_red')}</span>
-          <strong className="text-2xl font-black text-rose-600">{stats?.triage_distribution?.red || 0}</strong>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <span className="text-xs text-slate-500 font-bold block">{t('active_users')}</span>
-          <strong className="text-2xl font-black text-indigo-600">{usersList.length}</strong>
-        </div>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">{t('total_patients')}</span>
+          <strong className="text-3xl font-black text-slate-900 dark:text-white mt-1 block">{stats?.metrics?.total_patients || 0}</strong>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">{t('today_assessments')}</span>
+          <strong className="text-3xl font-black text-teal-600 dark:text-teal-400 mt-1 block">{stats?.metrics?.total_encounters || 0}</strong>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-rose-50 dark:bg-rose-950/50 p-5 rounded-3xl border border-rose-200 dark:border-rose-800 shadow-sm">
+          <span className="text-xs text-rose-700 dark:text-rose-300 font-bold block">{t('emergency_red')}</span>
+          <strong className="text-3xl font-black text-rose-600 dark:text-rose-400 mt-1 block">{stats?.triage_distribution?.red || 0}</strong>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">{t('active_users')}</span>
+          <strong className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-1 block">{usersList.length}</strong>
+        </motion.div>
       </div>
 
       {/* User Management Section */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center space-x-2">
-            <Users className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-lg font-bold text-slate-900">{t('active_users')}</h2>
+            <Users className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('active_system_users')}</h2>
           </div>
           <div className="flex items-center gap-2">
             <Link
               href="/dashboard/admin/pending-users"
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-2xl flex items-center gap-1.5 shadow-md shadow-amber-500/20"
             >
               <Users className="w-4 h-4" /> {t('pending_approvals')}
             </Link>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white text-xs font-bold rounded-2xl flex items-center gap-1.5 shadow-md shadow-teal-600/20"
             >
-              <UserPlus className="w-4 h-4" /> Create User Account
+              <UserPlus className="w-4 h-4" /> {t('create_user_account')}
             </button>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700">
-            <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px]">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase font-bold text-[10px]">
               <tr>
-                <th className="p-3">Full Name</th>
-                <th className="p-3">Username</th>
-                <th className="p-3">Email</th>
-                <th className="p-3">Role</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Password State</th>
-                <th className="p-3 text-right">Actions</th>
+                <th className="p-3.5 rounded-l-xl">{t('table_full_name')}</th>
+                <th className="p-3.5">{t('table_username')}</th>
+                <th className="p-3.5">{t('table_email')}</th>
+                <th className="p-3.5">{t('table_role')}</th>
+                <th className="p-3.5">{t('table_status')}</th>
+                <th className="p-3.5">{t('table_password_state')}</th>
+                <th className="p-3.5 text-right rounded-r-xl">{t('table_actions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {usersList.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50">
-                  <td className="p-3 font-bold text-slate-900">{u.full_name}</td>
-                  <td className="p-3 font-mono">{u.username}</td>
-                  <td className="p-3">{u.email}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      u.role === 'Admin' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                      u.role === 'Doctor' ? 'bg-cyan-100 text-cyan-800 border border-cyan-200' :
-                      'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                <tr key={u.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
+                  <td className="p-3.5 font-bold text-slate-900 dark:text-white">{u.full_name}</td>
+                  <td className="p-3.5 font-mono">{u.username}</td>
+                  <td className="p-3.5">{u.email}</td>
+                  <td className="p-3.5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      u.role === 'Admin' ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800' :
+                      u.role === 'Doctor' ? 'bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800' :
+                      'bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
                     }`}>
-                      {u.role}
+                      {u.role === 'Admin' ? t('role_admin') : u.role === 'Doctor' ? t('role_doctor') : t('role_worker')}
                     </span>
                   </td>
-                  <td className="p-3 text-emerald-600 font-semibold">{u.is_active ? 'Active' : 'Inactive'}</td>
-                  <td className="p-3">{u.requires_password_change ? 'Pending' : 'Completed'}</td>
-                  <td className="p-3 text-right">
+                  <td className="p-3.5 text-teal-600 dark:text-teal-400 font-semibold">{u.is_active ? t('status_active') : t('status_pending')}</td>
+                  <td className="p-3.5">{u.requires_password_change ? t('status_pending') : t('pwd_completed')}</td>
+                  <td className="p-3.5 text-right">
                     <button
                       onClick={async () => {
                         if (confirm(`Reset password for ${u.full_name} (${u.username}) to default 'swasthya123'?`)) {
@@ -190,9 +195,9 @@ export default function AdminDashboard() {
                           }
                         }
                       }}
-                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold rounded-lg border border-amber-200 transition"
+                      className="px-3 py-1 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-800 dark:text-amber-300 text-[11px] font-bold rounded-xl border border-amber-200 dark:border-amber-800 transition"
                     >
-                      Reset Password
+                      {t('reset_password')}
                     </button>
                   </td>
                 </tr>
@@ -204,85 +209,74 @@ export default function AdminDashboard() {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900">Create New User Account</h3>
-            <p className="text-xs text-slate-500">Healthcare Workers and Doctors are created by Admin</p>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl max-w-md w-full space-y-4 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t('create_user_account')}</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Healthcare Workers and Doctors are created directly by Admin</p>
 
             <form onSubmit={handleCreateUser} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('full_name')}</label>
                 <input
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Dr. Anjali Mehta"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Username</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('username')}</label>
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="e.g. dr_anjali"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('table_email')}</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="anjali@swasthyasetu.org"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">User Role</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('select_role')}</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900"
                 >
-                  <option value="Healthcare Worker">Healthcare Worker (ASHA / Nurse)</option>
-                  <option value="Doctor">Doctor</option>
-                  <option value="Admin">Admin</option>
+                  <option value="Healthcare Worker">{t('role_worker')}</option>
+                  <option value="Doctor">{t('role_doctor')}</option>
+                  <option value="Admin">{t('role_admin')}</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Temporary Initial Password</label>
-                <input
-                  type="text"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-emerald-700 font-bold"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
+              <div className="flex justify-end gap-2 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 rounded-xl"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white rounded-xl shadow-md"
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-2xl shadow-md"
                 >
-                  Create User
+                  {t('create_user_account')}
                 </button>
               </div>
             </form>
