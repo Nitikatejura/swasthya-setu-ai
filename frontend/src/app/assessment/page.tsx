@@ -1,35 +1,40 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api';
 import { useVoice } from '@/hooks/useVoice';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
-import { apiClient } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
-import { Mic, Send, Activity, ShieldAlert, ArrowRight, ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  Mic, Send, Activity, ShieldAlert, ArrowRight, ArrowLeft,
+  Volume2, Stethoscope, RefreshCw, CheckCircle2, Sparkles, AlertCircle
+} from 'lucide-react';
 
-export default function AssessmentPage() {
+export default function ClinicalAssessmentPage() {
   const searchParams = useSearchParams();
-  const patientId = searchParams.get('patient_id') || 'PAT-001';
-  const patientName = searchParams.get('patient_name') || 'Patient Assessment';
-  const patientCode = searchParams.get('patient_code') || 'SS-2026';
+  const router = useRouter();
+  const { lang, setLang } = useTranslation();
 
-  const { lang, setLang, t } = useTranslation();
-  const getGreeting = (l: string) => {
-    if (l === 'gu') return 'નમસ્તે! હું સ્વાસ્થ્યસેતુ AI સહાયક છું. દર્દીને શું તકલીફ થઈ રહી છે? કૃપા કરીને મુખ્ય લક્ષણો જણાવો.';
-    if (l === 'hi') return 'नमस्ते! मैं स्वास्थ्यसेतु AI सहायक हूं। मरीज को क्या समस्या हो रही है? कृपया मुख्य लक्षण बताएं।';
-    return 'Hello! I am SwasthyaSetu AI Assistant. What symptoms is the patient experiencing? Please describe them.';
-  };
+  const patientId = searchParams.get('patient_id') || '';
+  const patientName = searchParams.get('patient_name') || 'Emergency Patient';
+  const patientCode = searchParams.get('patient_code') || 'SS-2026-000';
 
-  const [step, setStep] = useState<number>(1);
-
-  // Step 1: AI Chat State
-  const [messages, setMessages] = useState<any[]>([
-    { role: 'model', content: getGreeting(lang) }
+  const [step, setStep] = useState(1);
+  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([
+    {
+      role: 'model',
+      content: lang === 'gu'
+        ? 'નમસ્તે! હું સ્વાસ્થ્યસેતુ AI મદદનીશ છું. દર્દીને શું તકલીફ છે તે કૃપા કરીને જણાવો.'
+        : lang === 'hi'
+        ? 'नमस्ते! मैं स्वास्थ्यसेतु AI सहायक हूँ। कृपया मरीज के लक्षण बताएं।'
+        : 'Hello! I am SwasthyaSetu AI Assistant. Please describe the patient’s symptoms.'
+    }
   ]);
   const [inputMsg, setInputMsg] = useState('');
   const [extractedSymptomText, setExtractedSymptomText] = useState('');
 
-  // Step 2: Vitals State (Clean initial state for accurate recording)
+  // Step 2: Vitals State
   const [spo2, setSpo2] = useState<string>('');
   const [temp, setTemp] = useState<string>('');
   const [sysBp, setSysBp] = useState<string>('');
@@ -39,17 +44,22 @@ export default function AssessmentPage() {
   const [height, setHeight] = useState<string>('');
   const [weight, setWeight] = useState<string>('');
 
-  // Step 3: Triage Result State
   const [triageResult, setTriageResult] = useState<any>(null);
+  const [triageExplanation, setTriageExplanation] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const { isListening, transcript, startListening, speakText } = useVoice(lang);
   const { queueOfflineAction } = useOfflineSync();
-  const router = useRouter();
+
+  const suggestedQuestions = [
+    lang === 'gu' ? 'તાવ ૫ દિવસથી આવે છે' : 'Fever for 5 days',
+    lang === 'gu' ? 'છાતીમાં સખત દુખાવો છે' : 'Severe chest pain',
+    lang === 'gu' ? 'શ્વાસ લેવામાં તકલીફ અનુભવાય છે' : 'Breathing difficulty'
+  ];
 
   // Handle Send Chat
-  const handleSendMessage = async () => {
-    const textToSend = inputMsg || transcript;
+  const handleSendMessage = async (textOverride?: string) => {
+    const textToSend = textOverride || inputMsg || transcript;
     if (!textToSend.trim()) return;
 
     const newMsgs = [...messages, { role: 'user', content: textToSend }];
@@ -112,6 +122,16 @@ export default function AssessmentPage() {
         });
 
         setTriageResult(triageRes.data);
+
+        try {
+          const expRes = await apiClient.post('/ai/explain-triage', {
+            priority: triageRes.data.priority,
+            matched_rules: typeof triageRes.data.matched_rules === 'string' ? JSON.parse(triageRes.data.matched_rules) : triageRes.data.matched_rules,
+            vitals: vitalsData,
+            language: lang
+          });
+          setTriageExplanation(expRes.data.explanation);
+        } catch (err) {}
       } catch (e) {
         evaluateOfflineTriage(encounterId, vitalsData);
       }
@@ -163,31 +183,31 @@ export default function AssessmentPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress Header */}
-      <div className="bg-white border border-slate-200 p-6 rounded-2xl flex justify-between items-center shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 rounded-3xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
         <div>
-          <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">{patientCode}</span>
-          <h1 className="text-xl font-black text-slate-900 mt-1">{patientName}</h1>
-          <p className="text-xs text-slate-500">Clinical Assessment Workflow & Triage</p>
+          <span className="text-xs font-mono font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-2.5 py-0.5 rounded border border-teal-200 dark:border-teal-800">{patientCode}</span>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white mt-1">{patientName}</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Clinical Assessment & Rule-Based Triage</p>
         </div>
 
         <div className="flex items-center space-x-2 text-xs font-bold">
-          <span className={`px-3 py-1 rounded-full ${step === 1 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>1. AI Symptoms</span>
-          <span className={`px-3 py-1 rounded-full ${step === 2 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>2. Vitals</span>
-          <span className={`px-3 py-1 rounded-full ${step === 3 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'}`}>3. Triage Result</span>
+          <span className={`px-3.5 py-1.5 rounded-full transition ${step === 1 ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>1. AI Symptoms</span>
+          <span className={`px-3.5 py-1.5 rounded-full transition ${step === 2 ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>2. Vitals</span>
+          <span className={`px-3.5 py-1.5 rounded-full transition ${step === 3 ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>3. Triage Result</span>
         </div>
       </div>
 
       {/* STEP 1: Multilingual AI Chat Assistant */}
       {step === 1 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Mic className="w-4 h-4 text-emerald-600" /> Multilingual AI Symptom Collection Assistant
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-4 shadow-sm">
+          <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" /> Multilingual AI Symptom Interview Assistant
             </h2>
             <select
               value={lang}
               onChange={(e) => setLang(e.target.value as any)}
-              className="bg-slate-50 text-xs border border-slate-200 rounded-xl px-2.5 py-1 text-slate-800 font-bold focus:bg-white"
+              className="bg-slate-50 dark:bg-slate-800 text-xs border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-1.5 text-slate-800 dark:text-slate-200 font-bold focus:bg-white dark:focus:bg-slate-900 cursor-pointer"
             >
               <option value="gu">ગુજરાતી (Gujarati)</option>
               <option value="hi">हिंदी (Hindi)</option>
@@ -195,26 +215,42 @@ export default function AssessmentPage() {
             </select>
           </div>
 
-          <div className="h-64 overflow-y-auto space-y-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <div className="h-72 overflow-y-auto space-y-3 p-4 bg-slate-50/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-700">
             {messages.map((m, idx) => (
-              <div
+              <motion.div
                 key={idx}
-                className={`max-w-[80%] p-3 rounded-xl text-xs font-sans shadow-sm ${
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`max-w-[85%] p-3.5 rounded-2xl text-xs font-sans shadow-sm leading-relaxed ${
                   m.role === 'user'
-                    ? 'ml-auto bg-emerald-600 text-white rounded-br-none font-medium'
-                    : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'
+                    ? 'ml-auto bg-teal-600 text-white rounded-br-none font-medium'
+                    : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 rounded-bl-none'
                 }`}
               >
                 {m.content}
-              </div>
+              </motion.div>
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Suggested Quick Question Pills */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <span className="text-[11px] font-bold text-slate-400 self-center">Quick Input:</span>
+            {suggestedQuestions.map((q, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSendMessage(q)}
+                className="px-3 py-1 bg-teal-50 dark:bg-teal-950/80 hover:bg-teal-100 text-teal-800 dark:text-teal-300 rounded-full text-[11px] font-bold border border-teal-200 dark:border-teal-800 transition"
+              >
+                + {q}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
             <button
               onClick={startListening}
-              className={`p-3 rounded-xl text-white font-bold text-xs flex items-center gap-1 transition ${
-                isListening ? 'bg-rose-600 animate-pulse' : 'bg-slate-800 hover:bg-slate-700'
+              className={`p-3.5 rounded-2xl text-white font-bold text-xs flex items-center gap-1 transition ${
+                isListening ? 'bg-rose-600 animate-pulse' : 'bg-slate-800 dark:bg-slate-700 hover:bg-slate-700'
               }`}
               title="Voice Input (STT)"
             >
@@ -225,22 +261,22 @@ export default function AssessmentPage() {
               type="text"
               value={inputMsg || transcript}
               onChange={(e) => setInputMsg(e.target.value)}
-              placeholder="Describe symptoms or talk in Gujarati/Hindi/English..."
-              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:bg-white"
+              placeholder="Describe symptoms or speak in Gujarati/Hindi/English..."
+              className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-teal-600 focus:bg-white dark:focus:bg-slate-900"
             />
 
             <button
-              onClick={handleSendMessage}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1 shadow-md shadow-emerald-600/20"
+              onClick={() => handleSendMessage()}
+              className="px-5 py-3 bg-teal-600 hover:bg-teal-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white font-bold text-xs rounded-2xl flex items-center gap-1 shadow-md shadow-teal-600/20"
             >
               <Send className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => setStep(2)}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-md shadow-emerald-600/20"
+              className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-2xl flex items-center gap-2 shadow-md shadow-teal-600/20"
             >
               <span>Next: Record Vital Signs</span>
               <ArrowRight className="w-4 h-4" />
@@ -251,116 +287,116 @@ export default function AssessmentPage() {
 
       {/* STEP 2: Vital Signs Entry */}
       {step === 2 && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-emerald-600" /> Record Patient Vital Signs
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-6 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Activity className="w-4 h-4 text-teal-600 dark:text-teal-400" /> Record Patient Vital Signs
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">SpO₂ (%)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">SpO₂ (%)</label>
               <input
                 type="number"
                 placeholder="e.g. 98"
                 value={spo2}
                 onChange={(e) => setSpo2(e.target.value)}
-                className={`w-full bg-white border rounded-lg px-3 py-2 text-xs font-bold ${
-                  spo2 && parseFloat(spo2) < 90 ? 'border-rose-500 text-rose-700 bg-rose-50' : 'border-slate-300 text-slate-900'
+                className={`w-full bg-white dark:bg-slate-900 border rounded-xl px-3 py-2 text-xs font-bold ${
+                  spo2 && parseFloat(spo2) < 90 ? 'border-rose-500 text-rose-700 bg-rose-50' : 'border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white'
                 }`}
               />
-              {spo2 && parseFloat(spo2) < 90 && <span className="text-[10px] text-rose-600 font-bold">🔴 Severe Hypoxia</span>}
+              {spo2 && parseFloat(spo2) < 90 && <span className="text-[10px] text-rose-600 font-bold">🔴 Severe Hypoxia (&lt;90%)</span>}
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Body Temp (°C)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Body Temp (°C)</label>
               <input
                 type="number"
                 placeholder="e.g. 37.0"
                 value={temp}
                 onChange={(e) => setTemp(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-bold"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
               />
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Systolic BP (mmHg)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Systolic BP (mmHg)</label>
               <input
                 type="number"
                 placeholder="e.g. 120"
                 value={sysBp}
                 onChange={(e) => setSysBp(e.target.value)}
-                className={`w-full bg-white border rounded-lg px-3 py-2 text-xs font-bold ${
-                  sysBp && parseInt(sysBp) >= 180 ? 'border-rose-500 text-rose-700 bg-rose-50' : 'border-slate-300 text-slate-900'
+                className={`w-full bg-white dark:bg-slate-900 border rounded-xl px-3 py-2 text-xs font-bold ${
+                  sysBp && parseInt(sysBp) >= 180 ? 'border-rose-500 text-rose-700 bg-rose-50' : 'border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white'
                 }`}
               />
               {sysBp && parseInt(sysBp) >= 180 && <span className="text-[10px] text-rose-600 font-bold">🔴 Hypertensive Crisis</span>}
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Diastolic BP (mmHg)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Diastolic BP (mmHg)</label>
               <input
                 type="number"
                 placeholder="e.g. 80"
                 value={diaBp}
                 onChange={(e) => setDiaBp(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-bold"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
               />
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Pulse Rate (bpm)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Pulse Rate (bpm)</label>
               <input
                 type="number"
                 placeholder="e.g. 72"
                 value={pulse}
                 onChange={(e) => setPulse(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-bold"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
               />
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Resp Rate (breaths/min)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Resp Rate (breaths/min)</label>
               <input
                 type="number"
                 placeholder="e.g. 16"
                 value={respRate}
                 onChange={(e) => setRespRate(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-bold"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
               />
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Height (cm)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Height (cm)</label>
               <input
                 type="number"
                 placeholder="e.g. 165"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-bold"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
               />
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Weight (kg)</label>
+            <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Weight (kg)</label>
               <input
                 type="number"
-                placeholder="e.g. 65"
+                placeholder="e.g. 68"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 font-bold"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
               />
             </div>
           </div>
 
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-700 flex justify-between items-center">
-            <span>Auto-Calculated BMI:</span>
-            <strong className="text-emerald-700 text-sm font-mono">{computedBmi} kg/m²</strong>
+          <div className="bg-slate-50/80 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 flex justify-between items-center">
+            <span>Auto-Calculated Body Mass Index (BMI):</span>
+            <strong className="text-teal-600 dark:text-teal-400 text-sm font-mono">{computedBmi} kg/m²</strong>
           </div>
 
-          <div className="flex justify-between pt-4">
+          <div className="flex justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => setStep(1)}
-              className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1"
+              className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl flex items-center gap-1"
             >
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
@@ -368,9 +404,9 @@ export default function AssessmentPage() {
             <button
               onClick={handleEvaluateTriage}
               disabled={loading}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-md shadow-emerald-600/20"
+              className="px-8 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-2xl flex items-center gap-2 shadow-lg shadow-teal-600/30"
             >
-              <span>{loading ? 'Evaluating Rules...' : 'Run Triage Engine & Generate Priority'}</span>
+              <span>{loading ? 'Evaluating Guidelines...' : 'Run Triage Engine & Generate Priority'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -379,43 +415,52 @@ export default function AssessmentPage() {
 
       {/* STEP 3: Triage Result Page */}
       {step === 3 && triageResult && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
-          {/* Priority Badge */}
-          <div className={`p-6 rounded-2xl border flex items-center justify-between ${
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 space-y-6 shadow-sm">
+          {/* Priority Badge Banner */}
+          <div className={`p-6 rounded-3xl border flex items-center justify-between shadow-md ${
             triageResult.priority === 'RED'
-              ? 'bg-rose-50 border-rose-300 text-rose-900'
+              ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
               : triageResult.priority === 'YELLOW'
-              ? 'bg-amber-50 border-amber-300 text-amber-900'
-              : 'bg-emerald-50 border-emerald-300 text-emerald-900'
+              ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-100'
+              : 'bg-teal-50 dark:bg-teal-950/60 border-teal-300 dark:border-teal-800 text-teal-900 dark:text-teal-100'
           }`}>
             <div className="space-y-1">
-              <span className="text-xs font-bold uppercase tracking-wider opacity-80">Deterministic Clinical Triage Priority</span>
+              <span className="text-xs font-bold uppercase tracking-wider opacity-80">Deterministic Rule Engine Evaluation</span>
               <h2 className="text-3xl font-black">{triageResult.priority} PRIORITY CASE</h2>
               <p className="text-xs opacity-90">Guideline Evaluated: {triageResult.guideline_used?.toUpperCase() || 'INDIA NHM'}</p>
             </div>
-            <div className="p-4 bg-white/80 rounded-2xl font-black text-4xl shadow-sm border border-slate-200">
+            <div className="p-4 bg-white/90 dark:bg-slate-900/90 rounded-2xl font-black text-4xl shadow-sm border border-slate-200 dark:border-slate-800">
               {triageResult.priority === 'RED' ? '🔴' : triageResult.priority === 'YELLOW' ? '🟡' : '🟢'}
             </div>
           </div>
 
-          {/* Clinical Reason & Recommended Actions */}
+          {/* Clinical Reasoning & AI Explanation */}
           <div className="space-y-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-1">Clinical Reasoning</h3>
-              <p className="text-xs text-slate-800 font-mono leading-relaxed">{triageResult.clinical_reason}</p>
+            {triageExplanation && (
+              <div className="bg-teal-50/80 dark:bg-teal-950/60 p-4 rounded-2xl border border-teal-200 dark:border-teal-800 space-y-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 flex items-center gap-1.5">
+                  <Stethoscope className="w-4 h-4 text-teal-600 dark:text-teal-400" /> AI Clinical Triage Explanation
+                </h3>
+                <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">{triageExplanation}</p>
+              </div>
+            )}
+
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 mb-1">Clinical Reasoning</h3>
+              <p className="text-xs text-slate-800 dark:text-slate-200 font-mono leading-relaxed">{triageResult.clinical_reason}</p>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 mb-1">Recommended Action Protocol</h3>
-              <p className="text-xs text-slate-800 leading-relaxed">{triageResult.recommended_actions}</p>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-300 mb-1">Recommended Action Protocol</h3>
+              <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed">{triageResult.recommended_actions}</p>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => router.push('/dashboard/worker')}
-              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl"
+              className="px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-2xl"
             >
               Complete & Return to Registry
             </button>
@@ -423,7 +468,7 @@ export default function AssessmentPage() {
             {triageResult.priority === 'RED' && (
               <button
                 onClick={() => router.push(`/referrals?patient_id=${patientId}&encounter_id=${triageResult.encounter_id}`)}
-                className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-rose-600/30 animate-pulse"
+                className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-2xl flex items-center gap-2 shadow-lg shadow-rose-600/30 animate-pulse"
               >
                 <ShieldAlert className="w-4 h-4" /> Create High-Risk Referral & Printable QR
               </button>

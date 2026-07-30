@@ -3,6 +3,9 @@ import secrets
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DEFAULT_DB_PATH = os.path.join(BASE_DIR, "swasthya_setu.db").replace("\\", "/")
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "SwasthyaSetu AI"
     VERSION: str = "1.0.0"
@@ -17,7 +20,7 @@ class Settings(BaseSettings):
     
     # Database
     SQLALCHEMY_DATABASE_URI: str = os.getenv(
-        "DATABASE_URL", "sqlite:///./swasthya_setu.db"
+        "DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}"
     )
     
     # CORS
