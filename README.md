@@ -134,11 +134,9 @@ venv\Scripts\python.exe -m pytest backend/tests/test_end_to_end_flow.py -v
 ## 👥 Project Team & Credits
 
 Developed for the **Maverick Effect AI Challenge** by:
-* **Mayank Rajput** (Computer Engineering)
 * **Nitika Tejura** (Computer Engineering)
-* **Jahanvi Yadav** (Information Technology)
 * **Rutvi Khunt** (Computer Engineering)
-* **Sneha Patel** (Computer Engineering)
+
 
 *Saffrony Institute of Technology | Gujarat Technological University (GTU)*
 
