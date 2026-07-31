@@ -88,15 +88,23 @@ class ClinicalRuleEvaluator:
             actions.append("Administer oral glucose/sugar if conscious, or IV dextrose under medical supervision.")
 
         # High Fever (Temperature > 39.5 °C or > 103.1 °F)
-        temp = vitals.get("temperature")
+        raw_temp = vitals.get("temperature")
+        temp_unit = vitals.get("temperature_unit", "F")
+        temp = None
+        if raw_temp is not None:
+            if temp_unit == "F" or (temp_unit is None and raw_temp > 45.0):
+                temp = (raw_temp - 32.0) * 5.0 / 9.0
+            else:
+                temp = raw_temp
+
         if temp is not None and temp > 39.5:
             priority = TriagePriority.RED
             matched_rules.append({
                 "code": "RED_VITAL_HYPERPYREXIA",
-                "title": "Hyperpyrexia (Temp > 39.5 °C)",
-                "description": f"Body temperature recorded as {temp} °C."
+                "title": f"Hyperpyrexia (Temp > 39.5 °C / {round(temp * 9/5 + 32, 1)} °F)",
+                "description": f"Body temperature recorded as {raw_temp} °{temp_unit or 'F'} ({round(temp, 1)} °C)."
             })
-            reasons.append(f"High Fever ({temp} °C)")
+            reasons.append(f"High Fever ({raw_temp} °{temp_unit or 'F'})")
             actions.append("Tepid sponging, administer antipyretic as per standing orders, urgent doctor review.")
 
         # Symptom Red Flags
@@ -148,15 +156,15 @@ class ClinicalRuleEvaluator:
                 reasons.append(f"Elevated Blood Pressure ({sys_bp} mmHg)")
                 actions.append("Rest patient for 10 minutes and repeat BP. Doctor consultation required.")
 
-            # Temperature 38.0 - 39.5 °C
+            # Temperature 38.0 - 39.5 °C (100.4 - 103.1 °F)
             if temp is not None and 38.0 <= temp <= 39.5:
                 priority = TriagePriority.YELLOW
                 matched_rules.append({
                     "code": "YELLOW_VITAL_FEVER",
-                    "title": "Moderate Fever (38.0 - 39.5 °C)",
-                    "description": f"Body temperature recorded as {temp} °C."
+                    "title": "Moderate Fever (38.0 - 39.5 °C / 100.4 - 103.1 °F)",
+                    "description": f"Body temperature recorded as {raw_temp} °{temp_unit or 'F'} ({round(temp, 1)} °C)."
                 })
-                reasons.append(f"Moderate Fever ({temp} °C)")
+                reasons.append(f"Moderate Fever ({raw_temp} °{temp_unit or 'F'})")
                 actions.append("Hydrate patient, administer paracetamol if indicated, observe for 30 minutes.")
 
             # Pulse Rate > 110 or < 50

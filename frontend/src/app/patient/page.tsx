@@ -13,14 +13,43 @@ export default function PatientRegistryPage() {
     try {
       if (navigator.onLine) {
         const res = await apiClient.get(`/patients?query=${searchTerm}`);
-        setPatients(res.data);
+        const serverPatients = res.data || [];
+        const localPatients = await offlineDb.patients.toArray();
+
+        const mergedMap = new Map();
+        serverPatients.forEach((p: any) => mergedMap.set(p.patient_id || p.id, p));
+        localPatients.forEach((lp: any) => {
+          const key = lp.patient_id || lp.id;
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, lp);
+          }
+        });
+        setPatients(Array.from(mergedMap.values()));
       } else {
+        const term = searchTerm.toLowerCase().trim();
         const local = await offlineDb.patients.toArray();
-        setPatients(local);
+        const filtered = term
+          ? local.filter(p =>
+              p.patient_id?.toLowerCase().includes(term) ||
+              p.full_name?.toLowerCase().includes(term) ||
+              p.phone_number?.includes(term) ||
+              p.village_id?.toLowerCase().includes(term)
+            )
+          : local;
+        setPatients(filtered);
       }
     } catch (e) {
+      const term = searchTerm.toLowerCase().trim();
       const local = await offlineDb.patients.toArray();
-      setPatients(local);
+      const filtered = term
+        ? local.filter(p =>
+            p.patient_id?.toLowerCase().includes(term) ||
+            p.full_name?.toLowerCase().includes(term) ||
+            p.phone_number?.includes(term) ||
+            p.village_id?.toLowerCase().includes(term)
+          )
+        : local;
+      setPatients(filtered);
     }
   };
 

@@ -201,6 +201,7 @@ class SymptomResponse(BaseModel):
 
 class VitalCreate(BaseModel):
     temperature: Optional[float] = None
+    temperature_unit: Optional[str] = "F"
     pulse_rate: Optional[int] = None
     systolic_bp: Optional[int] = None
     diastolic_bp: Optional[int] = None
@@ -214,6 +215,7 @@ class VitalResponse(BaseModel):
     id: str
     encounter_id: str
     temperature: Optional[float] = None
+    temperature_unit: Optional[str] = "F"
     pulse_rate: Optional[int] = None
     systolic_bp: Optional[int] = None
     diastolic_bp: Optional[int] = None
@@ -283,6 +285,7 @@ class DoctorNoteCreate(BaseModel):
     notes: str
     diagnosis_impression: Optional[str] = None
     treatment_plan: Optional[str] = None
+    clinical_orders: Optional[str] = None
 
 class ReferralCreate(BaseModel):
     patient_id: str

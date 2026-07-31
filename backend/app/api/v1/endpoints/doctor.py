@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_doctor, get_current_active_user
@@ -9,7 +10,13 @@ from app.schemas.schemas import DoctorNoteCreate
 
 router = APIRouter()
 
-@router.get("/dashboard/doctor")
+class DoctorImpressionRequest(BaseModel):
+    doctor_impression: str
+    treatment_orders: Optional[str] = None
+    clinical_orders: Optional[str] = None
+    encounter_id: str
+
+@router.get("/dashboard")
 def get_doctor_dashboard_stats(
     db: Session = Depends(get_db),
     doctor_user: User = Depends(require_doctor)
@@ -37,7 +44,7 @@ def get_doctor_dashboard_stats(
                 "gender": enc.patient.gender,
                 "village": enc.patient.village.name if enc.patient.village else "N/A",
                 "clinical_reason": tr.clinical_reason,
-                "evaluated_at": tr.evaluated_at,
+                "evaluated_at": tr.evaluated_at.isoformat() if tr.evaluated_at else None,
                 "is_acknowledged": tr.is_acknowledged_by_doctor
             })
 
@@ -69,13 +76,14 @@ def get_emergency_alerts(
         if enc and enc.patient:
             alerts.append({
                 "alert_id": tr.id,
+                "triage_id": tr.id,
                 "encounter_id": enc.id,
                 "patient_id": enc.patient.patient_id,
                 "patient_name": enc.patient.full_name,
                 "age": enc.patient.age,
                 "gender": enc.patient.gender,
                 "clinical_reason": tr.clinical_reason,
-                "evaluated_at": tr.evaluated_at
+                "evaluated_at": tr.evaluated_at.isoformat() if tr.evaluated_at else None
             })
     return alerts
 
@@ -87,18 +95,58 @@ def acknowledge_alert(
 ):
     tr = db.query(TriageRecord).filter(TriageRecord.id == triage_id).first()
     if not tr:
-        raise HTTPException(status_code=404, detail="Triage record not found")
+        tr = db.query(TriageRecord).filter(TriageRecord.encounter_id == triage_id).first()
+        if not tr:
+            raise HTTPException(status_code=404, detail="Triage record not found")
 
     tr.is_acknowledged_by_doctor = True
     tr.acknowledged_by = doctor_user.id
     tr.acknowledged_at = datetime.utcnow()
     db.commit()
 
-    audit = AuditLog(user_id=doctor_user.id, action="ACKNOWLEDGE_RED_ALERT", entity="TriageRecord", entity_id=triage_id)
+    audit = AuditLog(user_id=doctor_user.id, action="ACKNOWLEDGE_RED_ALERT", entity="TriageRecord", entity_id=tr.id)
     db.add(audit)
     db.commit()
 
     return {"message": "Alert acknowledged successfully"}
+
+@router.put("/cases/{encounter_id}/impression")
+def save_case_impression(
+    encounter_id: str,
+    req: DoctorImpressionRequest,
+    db: Session = Depends(get_db),
+    doctor_user: User = Depends(require_doctor)
+):
+    enc = db.query(Encounter).filter(Encounter.id == encounter_id).first()
+    if not enc:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+
+    note = db.query(DoctorNote).filter(DoctorNote.encounter_id == encounter_id).first()
+    orders_text = req.clinical_orders or req.treatment_orders
+    if not note:
+        note = DoctorNote(
+            encounter_id=encounter_id,
+            doctor_id=doctor_user.id,
+            notes=req.doctor_impression,
+            diagnosis_impression=req.doctor_impression,
+            treatment_plan=req.treatment_orders,
+            clinical_orders=orders_text
+        )
+        db.add(note)
+    else:
+        note.notes = req.doctor_impression
+        note.diagnosis_impression = req.doctor_impression
+        note.treatment_plan = req.treatment_orders
+        note.clinical_orders = orders_text
+
+    enc.is_reviewed = True
+    db.commit()
+
+    audit = AuditLog(user_id=doctor_user.id, action="SAVE_DOCTOR_IMPRESSION", entity="Encounter", entity_id=encounter_id)
+    db.add(audit)
+    db.commit()
+
+    return {"message": "Doctor impression and treatment plan saved successfully"}
 
 @router.post("/notes")
 def add_doctor_notes(

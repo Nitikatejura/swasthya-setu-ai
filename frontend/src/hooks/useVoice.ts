@@ -1,11 +1,16 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function useVoice(langCode: string = 'en') {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [supported, setSupported] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const recognitionRef = useRef<any>(null);
+  const timerRef = useRef<any>(null);
+
+  const MAX_DURATION_SECONDS = 120; // 120 seconds (02:00)
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -15,12 +20,15 @@ export function useVoice(langCode: string = 'en') {
 
   const startListening = () => {
     if (!supported) return;
+    stopListening(); // Reset any existing active session
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognitionRef.current = recognition;
+
+    recognition.continuous = true;
     recognition.interimResults = true;
 
-    // Set voice language code mapping
     const langMap: Record<string, string> = {
       gu: 'gu-IN',
       hi: 'hi-IN',
@@ -35,16 +43,51 @@ export function useVoice(langCode: string = 'en') {
     };
     recognition.lang = langMap[langCode] || 'en-IN';
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => {
-      const current = event.resultIndex;
-      const text = event.results[current][0].transcript;
-      setTranscript(text);
-    };
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    setRecordingSeconds(0);
 
-    recognition.start();
+    recognition.onstart = () => {
+      setIsListening(true);
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev >= MAX_DURATION_SECONDS - 1) {
+            stopListening();
+            return MAX_DURATION_SECONDS;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    };
+
+    recognition.onresult = (event: any) => {
+      let finalStr = '';
+      for (let i = 0; i < event.results.length; i++) {
+        finalStr += event.results[i][0].transcript + ' ';
+      }
+      setTranscript(finalStr.trim());
+    };
+
+    recognition.onerror = () => stopListening();
+    recognition.onend = () => stopListening();
+
+    try {
+      recognition.start();
+    } catch (e) {
+      stopListening();
+    }
+  };
+
+  const stopListening = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
   };
 
   const speakText = (text: string) => {
@@ -71,5 +114,24 @@ export function useVoice(langCode: string = 'en') {
     }
   };
 
-  return { isListening, transcript, setTranscript, isSpeaking, supported, startListening, speakText, stopSpeaking };
+  const formatTimer = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  return {
+    isListening,
+    transcript,
+    setTranscript,
+    isSpeaking,
+    supported,
+    recordingSeconds,
+    formatTimer,
+    maxDurationSeconds: MAX_DURATION_SECONDS,
+    startListening,
+    stopListening,
+    speakText,
+    stopSpeaking
+  };
 }

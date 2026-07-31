@@ -45,9 +45,8 @@ export function Navbar({ lang: propLang, setLang: propSetLang }: { lang?: string
             </div>
             <div>
               <Link href="/" className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                SwasthyaSetu AI <span className="text-teal-700 dark:text-teal-300 text-xs px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/80 border border-teal-200 dark:border-teal-800 font-bold">{t('smart_triage_badge')}</span>
+                SwasthyaSetu AI
               </Link>
-              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">{t('sub_logo_tag')}</p>
             </div>
           </div>
 

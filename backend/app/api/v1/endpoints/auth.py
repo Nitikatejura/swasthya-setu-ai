@@ -21,9 +21,6 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
             detail="Incorrect username/email or password"
         )
     
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive account")
-
     if user.account_status == "PENDING":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -36,6 +33,9 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"REJECTED: {reason_msg}"
         )
+
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive account")
 
     access_token = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
@@ -60,6 +60,16 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Username or email already registered")
 
+    if not user_in.password or not user_in.password.strip():
+        raise HTTPException(status_code=400, detail="Password is required")
+
+    reg_num = (user_in.registration_number or "").strip()
+    if user_in.role == "Doctor":
+        if not reg_num or reg_num.upper() in ["NA", "N/A"]:
+            raise HTTPException(status_code=400, detail="Medical Registration Number is required for Doctors")
+    else:
+        reg_num = "NA"
+
     new_user = User(
         full_name=user_in.full_name,
         username=user_in.username,
@@ -69,7 +79,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         role=user_in.role,
         hospital_id=user_in.hospital_id,
         hospital_name=user_in.hospital_name,
-        registration_number=user_in.registration_number,
+        registration_number=reg_num,
         employee_id=user_in.employee_id,
         account_status="PENDING",
         is_active=True,

@@ -48,7 +48,7 @@ export default function ClinicalAssessmentPage() {
   const [triageExplanation, setTriageExplanation] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  const { isListening, transcript, startListening, speakText } = useVoice(lang);
+  const { isListening, transcript, startListening, stopListening, recordingSeconds, formatTimer, speakText } = useVoice(lang);
   const { queueOfflineAction } = useOfflineSync();
 
   const suggestedQuestions = [
@@ -96,6 +96,7 @@ export default function ClinicalAssessmentPage() {
     const vitalsData = {
       spo2: spo2 ? parseFloat(spo2) : null,
       temperature: temp ? parseFloat(temp) : null,
+      temperature_unit: 'F',
       systolic_bp: sysBp ? parseInt(sysBp) : null,
       diastolic_bp: diaBp ? parseInt(diaBp) : null,
       pulse_rate: pulse ? parseInt(pulse) : null,
@@ -248,13 +249,18 @@ export default function ClinicalAssessmentPage() {
 
           <div className="flex items-center gap-2 pt-2">
             <button
-              onClick={startListening}
-              className={`p-3.5 rounded-2xl text-white font-bold text-xs flex items-center gap-1 transition ${
-                isListening ? 'bg-rose-600 animate-pulse' : 'bg-slate-800 dark:bg-slate-700 hover:bg-slate-700'
+              onClick={isListening ? stopListening : startListening}
+              className={`px-3.5 py-3 rounded-2xl text-white font-bold text-xs flex items-center gap-2 transition ${
+                isListening ? 'bg-rose-600 animate-pulse ring-2 ring-rose-400' : 'bg-slate-800 dark:bg-slate-700 hover:bg-slate-700'
               }`}
-              title="Voice Input (STT)"
+              title="Voice Input (STT Max 120s)"
             >
               <Mic className="w-4 h-4" />
+              {isListening && (
+                <span className="font-mono text-xs font-bold tracking-tight">
+                  {formatTimer(recordingSeconds)} / 02:00
+                </span>
+              )}
             </button>
 
             <input
@@ -308,10 +314,11 @@ export default function ClinicalAssessmentPage() {
             </div>
 
             <div className="bg-slate-50/80 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-1">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Body Temp (°C)</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Body Temperature (°F)</label>
               <input
                 type="number"
-                placeholder="e.g. 37.0"
+                step="0.1"
+                placeholder="e.g. 98.6"
                 value={temp}
                 onChange={(e) => setTemp(e.target.value)}
                 className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-bold"
